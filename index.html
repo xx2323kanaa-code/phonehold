@@ -2,33 +2,42 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Right Hand – Phone Hold Demo</title>
+<title>Right Hand Phone Hold</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{
+html,body{
   margin:0;
+  padding:0;
   background:#000;
+  width:100%;
+  height:100%;
+}
+body{
   display:flex;
   justify-content:center;
   align-items:center;
-  height:100vh;
 }
-svg{ width:360px; height:360px; }
+
+svg{
+  width:100vw;
+  max-width:420px;
+  height:auto;
+}
 
 .palm{
-  fill: rgba(255,255,0,0.25);
-  stroke: yellow;
+  fill:rgba(255,255,0,0.25);
+  stroke:yellow;
   stroke-width:6;
 }
 
 .finger,.thumb,.wrist{
-  stroke: yellow;
+  stroke:yellow;
   stroke-width:5;
   stroke-linecap:round;
 }
 
-.nail{ fill: yellow; }
+.nail{ fill:yellow; }
 
 .phone{
   fill:#1e6cff;
@@ -46,13 +55,14 @@ svg{ width:360px; height:360px; }
 </head>
 
 <body>
+
 <svg viewBox="0 0 360 360">
 
   <!-- ケータイ（固定） -->
   <rect id="phone" class="phone" x="160" y="150" width="60" height="100"/>
 
   <!-- 手全体 -->
-  <g id="handGroup">
+  <g id="hand">
 
     <!-- 手首 -->
     <line x1="165" y1="300" x2="165" y2="260" class="wrist"/>
@@ -76,22 +86,22 @@ svg{ width:360px; height:360px; }
     <polygon id="n_thumb"  class="nail"/>
   </g>
 
-  <text id="stateLabel" x="180" y="40" class="label">RELAX</text>
+  <text id="label" x="180" y="40" class="label">RELAX</text>
 </svg>
 
 <script>
-/* ===== 基本設定 ===== */
-
+/* ===== 定数 ===== */
 const baseY = 200;
 
-// 指配置（右手・背側）
+/* 指（右手・背側） */
 const fingers = {
   little:{ x:135, relax:60, hold:30, lock:25, mini:35 },
   ring:{   x:155, relax:70, hold:32, lock:27, mini:37 },
-  middle:{ x:175, relax:75, hold:38, lock:32, mini:42 }, // ★第3指が最長
+  middle:{ x:175, relax:75, hold:38, lock:32, mini:42 },
   index:{  x:195, relax:75, hold:34, lock:28, mini:38 }
 };
 
+/* 親指 */
 const thumb = {
   x1:240,y1:235,
   relax:{ x2:270,y2:200 },
@@ -101,77 +111,52 @@ const thumb = {
 const states = ["RELAX","HOLD","LOCK","MINI","RELAX"];
 let stateIndex = 0;
 
-let t = 0;
-let target = 0;
-const speed = 0.08;
+const label = document.getElementById("label");
+const phone = document.getElementById("phone");
+const hand  = document.getElementById("hand");
 
-const lerp = (a,b,t)=>a+(b-a)*t;
-
-/* ===== 爪 ===== */
+/* 爪 */
 function nail(id,x,y){
   const s=6;
   document.getElementById(id)
     .setAttribute("points",`${x-s},${y} ${x+s},${y} ${x},${y-s}`);
 }
 
-/* ===== 状態制御 ===== */
-function setTarget(){
+/* 状態反映 */
+function applyState(){
   const state = states[stateIndex];
-  document.getElementById("stateLabel").textContent = state;
+  label.textContent = state;
 
-  if(state==="RELAX"){ target=0; }
-  if(state==="HOLD"){ target=1; }
-  if(state==="LOCK"){ target=2; }
-  if(state==="MINI"){ target=3; }
+  // ケータイ
+  phone.style.opacity = (state==="RELAX") ? 0 : 1;
 
-  // ケータイ表示：HOLD以降ずっと
-  const phone = document.getElementById("phone");
-  phone.style.opacity = state==="RELAX" ? 0 : 1;
-
-  // 手首回旋（HOLD以降）
-  const hand = document.getElementById("handGroup");
+  // 手首回旋
   if(state==="HOLD"){
-    hand.setAttribute(
-      "transform",
-      "rotate(15 180 260)"
-    );
+    hand.setAttribute("transform","rotate(15 180 260)");
   }
   if(state==="RELAX"){
     hand.setAttribute("transform","");
   }
-}
 
-setInterval(()=>{
-  stateIndex = (stateIndex+1)%states.length;
-  setTarget();
-},3000);
-
-setTarget();
-
-/* ===== アニメーション ===== */
-function animate(){
-  t += (target - t) * speed;
-
+  // 指
   for(const id in fingers){
     const f = fingers[id];
-    let len;
+    let len = f.relax;
+    if(state==="HOLD") len=f.hold;
+    if(state==="LOCK") len=f.lock;
+    if(state==="MINI") len=f.mini;
 
-    if(target===0) len = f.relax;
-    if(target===1) len = f.hold;
-    if(target===2) len = f.lock;
-    if(target===3) len = f.mini;
+    const x=f.x;
+    const y2=baseY-len;
 
-    const x = f.x;
-    const y2 = baseY - len;
-
-    const el = document.getElementById(id);
+    const el=document.getElementById(id);
     el.setAttribute("x1",x);
     el.setAttribute("y1",baseY);
     el.setAttribute("x2",x);
     el.setAttribute("y2",y2);
 
-    const n = document.getElementById("n_"+id);
-    if(target===0){
+    const n=document.getElementById("n_"+id);
+    if(state==="RELAX"){
       nail("n_"+id,x,y2);
       n.style.opacity=1;
     }else{
@@ -180,26 +165,30 @@ function animate(){
   }
 
   // 親指
-  const th = document.getElementById("thumb");
-  const tx = lerp(thumb.relax.x2, thumb.hold.x2, target>0?1:0);
-  const ty = lerp(thumb.relax.y2, thumb.hold.y2, target>0?1:0);
+  const th=document.getElementById("thumb");
+  const pos = (state==="RELAX") ? thumb.relax : thumb.hold;
   th.setAttribute("x1",thumb.x1);
   th.setAttribute("y1",thumb.y1);
-  th.setAttribute("x2",tx);
-  th.setAttribute("y2",ty);
+  th.setAttribute("x2",pos.x2);
+  th.setAttribute("y2",pos.y2);
 
-  const nt = document.getElementById("n_thumb");
-  if(target===0){
-    nail("n_thumb",tx,ty);
+  const nt=document.getElementById("n_thumb");
+  if(state==="RELAX"){
+    nail("n_thumb",pos.x2,pos.y2);
     nt.style.opacity=1;
   }else{
     nt.style.opacity=0;
   }
-
-  requestAnimationFrame(animate);
 }
 
-animate();
+/* ループ */
+setInterval(()=>{
+  stateIndex = (stateIndex+1) % states.length;
+  applyState();
+},3000);
+
+applyState();
 </script>
+
 </body>
 </html>
