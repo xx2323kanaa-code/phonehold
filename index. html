@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Right Hand – Phone Hold Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  margin:0;
+  background:#000;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+svg{ width:360px; height:360px; }
+
+.palm{
+  fill: rgba(255,255,0,0.25);
+  stroke: yellow;
+  stroke-width:6;
+}
+
+.finger,.thumb,.wrist{
+  stroke: yellow;
+  stroke-width:5;
+  stroke-linecap:round;
+}
+
+.nail{ fill: yellow; }
+
+.phone{
+  fill:#1e6cff;
+  rx:10;
+  ry:10;
+  opacity:0;
+}
+
+.label{
+  fill:#aaa;
+  font-size:12px;
+  text-anchor:middle;
+}
+</style>
+</head>
+
+<body>
+<svg viewBox="0 0 360 360">
+
+  <!-- ケータイ（固定） -->
+  <rect id="phone" class="phone" x="160" y="150" width="60" height="100"/>
+
+  <!-- 手全体 -->
+  <g id="handGroup">
+
+    <!-- 手首 -->
+    <line x1="165" y1="300" x2="165" y2="260" class="wrist"/>
+    <line x1="195" y1="300" x2="195" y2="260" class="wrist"/>
+
+    <!-- 手の甲 -->
+    <rect x="120" y="200" width="120" height="60" rx="20" class="palm"/>
+
+    <!-- 指（右手・背側） -->
+    <line id="little" class="finger"/>
+    <line id="ring"   class="finger"/>
+    <line id="middle" class="finger"/>
+    <line id="index"  class="finger"/>
+    <line id="thumb"  class="thumb"/>
+
+    <!-- 爪 -->
+    <polygon id="n_little" class="nail"/>
+    <polygon id="n_ring"   class="nail"/>
+    <polygon id="n_middle" class="nail"/>
+    <polygon id="n_index"  class="nail"/>
+    <polygon id="n_thumb"  class="nail"/>
+  </g>
+
+  <text id="stateLabel" x="180" y="40" class="label">RELAX</text>
+</svg>
+
+<script>
+/* ===== 基本設定 ===== */
+
+const baseY = 200;
+
+// 指配置（右手・背側）
+const fingers = {
+  little:{ x:135, relax:60, hold:30, lock:25, mini:35 },
+  ring:{   x:155, relax:70, hold:32, lock:27, mini:37 },
+  middle:{ x:175, relax:75, hold:38, lock:32, mini:42 }, // ★第3指が最長
+  index:{  x:195, relax:75, hold:34, lock:28, mini:38 }
+};
+
+const thumb = {
+  x1:240,y1:235,
+  relax:{ x2:270,y2:200 },
+  hold:{  x2:215,y2:215 }
+};
+
+const states = ["RELAX","HOLD","LOCK","MINI","RELAX"];
+let stateIndex = 0;
+
+let t = 0;
+let target = 0;
+const speed = 0.08;
+
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+/* ===== 爪 ===== */
+function nail(id,x,y){
+  const s=6;
+  document.getElementById(id)
+    .setAttribute("points",`${x-s},${y} ${x+s},${y} ${x},${y-s}`);
+}
+
+/* ===== 状態制御 ===== */
+function setTarget(){
+  const state = states[stateIndex];
+  document.getElementById("stateLabel").textContent = state;
+
+  if(state==="RELAX"){ target=0; }
+  if(state==="HOLD"){ target=1; }
+  if(state==="LOCK"){ target=2; }
+  if(state==="MINI"){ target=3; }
+
+  // ケータイ表示：HOLD以降ずっと
+  const phone = document.getElementById("phone");
+  phone.style.opacity = state==="RELAX" ? 0 : 1;
+
+  // 手首回旋（HOLD以降）
+  const hand = document.getElementById("handGroup");
+  if(state==="HOLD"){
+    hand.setAttribute(
+      "transform",
+      "rotate(15 180 260)"
+    );
+  }
+  if(state==="RELAX"){
+    hand.setAttribute("transform","");
+  }
+}
+
+setInterval(()=>{
+  stateIndex = (stateIndex+1)%states.length;
+  setTarget();
+},3000);
+
+setTarget();
+
+/* ===== アニメーション ===== */
+function animate(){
+  t += (target - t) * speed;
+
+  for(const id in fingers){
+    const f = fingers[id];
+    let len;
+
+    if(target===0) len = f.relax;
+    if(target===1) len = f.hold;
+    if(target===2) len = f.lock;
+    if(target===3) len = f.mini;
+
+    const x = f.x;
+    const y2 = baseY - len;
+
+    const el = document.getElementById(id);
+    el.setAttribute("x1",x);
+    el.setAttribute("y1",baseY);
+    el.setAttribute("x2",x);
+    el.setAttribute("y2",y2);
+
+    const n = document.getElementById("n_"+id);
+    if(target===0){
+      nail("n_"+id,x,y2);
+      n.style.opacity=1;
+    }else{
+      n.style.opacity=0;
+    }
+  }
+
+  // 親指
+  const th = document.getElementById("thumb");
+  const tx = lerp(thumb.relax.x2, thumb.hold.x2, target>0?1:0);
+  const ty = lerp(thumb.relax.y2, thumb.hold.y2, target>0?1:0);
+  th.setAttribute("x1",thumb.x1);
+  th.setAttribute("y1",thumb.y1);
+  th.setAttribute("x2",tx);
+  th.setAttribute("y2",ty);
+
+  const nt = document.getElementById("n_thumb");
+  if(target===0){
+    nail("n_thumb",tx,ty);
+    nt.style.opacity=1;
+  }else{
+    nt.style.opacity=0;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
